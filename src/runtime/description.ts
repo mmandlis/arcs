@@ -77,7 +77,10 @@ export class Description {
 
   static async _createParticleDescription(particle: Particle, arc: Arc, relevance?: Relevance) {
     let pDesc : ParticleDescription = {
-      _particle: particle,
+      // _particle: particle,
+      particleId: particle.id,
+      particleName: particle.name,
+      particleSpec: particle.spec,
       _connections: {}
     };
     if (relevance) {

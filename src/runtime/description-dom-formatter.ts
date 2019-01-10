@@ -21,7 +21,7 @@ export class DescriptionDomFormatter extends DescriptionFormatter {
   _combineSelectedDescriptions(selectedDescriptions: ParticleDescription[], options: CombinedDescriptionsOptions) {
     const suggestionByParticleDesc = new Map();
     for (const particleDesc of selectedDescriptions) {
-      if (this.seenParticles.has(particleDesc._particle)) {
+      if (this.seenParticleIds.has(particleDesc.particleId)) {
         continue;
       }
 

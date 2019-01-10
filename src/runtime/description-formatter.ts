@@ -17,7 +17,10 @@ import {HandleConnection} from './recipe/handle-connection.js';
 import {CollectionType, BigCollectionType, InterfaceType} from './type.js';
 
 export type ParticleDescription = {
-  _particle: Particle,
+  // _particle: Particle,
+  particleName: string,
+  particleId: string,
+  particleSpec: ParticleSpec,
   pattern?: string,
   _connections: {[index: string]: HandleDescription},
   _rank?: number
@@ -29,11 +32,16 @@ export type CombinedDescriptionsOptions = {skipFormatting?: boolean};
 
 export class DescriptionFormatter {
   private seenHandles: Set<Handle> = new Set();
-  seenParticles: Set<Particle> = new Set();
+  seenParticleIds: Set<string> = new Set();
   excludeValues = false;
 
   constructor(private readonly particleDescriptions = <ParticleDescription[]>[],
-              private readonly storeDescById: {[id: string]: string} = {}) {}
+              private readonly storeDescById: {[id: string]: string} = {}) {
+    // TODO: get back to this once Suggestion has deserialized plan inside.
+    // DescriptionFormatter could take the Recipe in ctor and use it (silently
+    // assuming that this is same/partial recipe of the Description's initial
+    // arc.activeRecipe)
+  }
 
   getDescription(recipe: {patterns: string[], particles: Particle[]}) {
     if (recipe.patterns.length > 0) {
@@ -49,12 +57,11 @@ export class DescriptionFormatter {
     }
 
     // Choose particles, sort them by rank and generate suggestions.
-    const particlesSet = new Set(recipe.particles);
     let selectedDescriptions = this.particleDescriptions
-      .filter(desc => (particlesSet.has(desc._particle) && this._isSelectedDescription(desc)));
+        .filter(desc => (recipe.particles.find(p => p.id === desc.particleId) && this._isSelectedDescription(desc)));
     // Prefer particles that render UI, if any.
-    if (selectedDescriptions.find(desc => (desc._particle.spec.slots.size > 0))) {
-      selectedDescriptions = selectedDescriptions.filter(desc => (desc._particle.spec.slots.size > 0));
+    if (selectedDescriptions.find(desc => (desc.particleSpec.slots.size > 0))) {
+      selectedDescriptions = selectedDescriptions.filter(desc => (desc.particleSpec.slots.size > 0));
     }
     selectedDescriptions = selectedDescriptions.sort(DescriptionFormatter.sort);
 
@@ -78,9 +85,9 @@ export class DescriptionFormatter {
   // tslint:disable-next-line: no-any 
   _combineSelectedDescriptions(selectedDescriptions: ParticleDescription[], options: CombinedDescriptionsOptions = {}) {
     const suggestions = [];
-    selectedDescriptions.map(particle => {
-      if (!this.seenParticles.has(particle._particle)) {
-        suggestions.push(this.patternToSuggestion(particle.pattern, particle));
+    selectedDescriptions.map(particleDesc => {
+      if (!this.seenParticleIds.has(particleDesc.particleId)) {
+        suggestions.push(this.patternToSuggestion(particleDesc.pattern, particleDesc));
       }
     });
     const jointDescription = this._joinDescriptions(suggestions);
@@ -165,16 +172,16 @@ export class DescriptionFormatter {
     const extra = valueTokens.length === 3 ? valueTokens[2] : undefined;
 
     // Fetch the particle description by name from the value token - if it wasn't passed, this is a recipe description.
-    if (!particleDescription._particle) {
+    if (!particleDescription.particleSpec) { //__particle) {
       const particleName = handleNames.shift();
       if (particleName[0] !== particleName[0].toUpperCase()) {
         console.warn(`Invalid particle name '${particleName}' - must start with a capital letter.`);
         return [];
       }
       const particleDescriptions = this.particleDescriptions.filter(desc => {
-        return desc._particle.name === particleName
+        return desc.particleName === particleName
             // The particle description is from the current recipe.
-            && particleDescription._recipe.particles.find(p => p === desc._particle);
+            && particleDescription._recipe.particles.find(p => p.id === desc.particleId);
       });
 
       if (particleDescriptions.length === 0) {
@@ -187,18 +194,23 @@ export class DescriptionFormatter {
       // there will be a duplicate particle-description.
       particleDescription = particleDescriptions[particleDescriptions.length - 1];
     }
-    const particle = particleDescription._particle;
 
     if (handleNames.length === 0) {
       // return a particle token
       return [{
-        particleName: particle.spec.name,
+        particleName: particleDescription.particleSpec.name,
         particleDescription
       }];
     }
 
-    const handleConn = particle.connections[handleNames[0]];
-    if (handleConn) { // handle connection
+    // const particle = particleDescription._particle;
+
+    debugger;
+    const handleDesc: HandleDescription = particleDescription._connections[handleNames[0]];
+                       //particle.connections[handleNames[0]];
+    if (handleDesc) { //handleConn) { // handle connection
+      const handleConn = handleDesc._handleConn;
+      assert(handleConn, `????`);
       assert(handleConn.handle && handleConn.handle.id, 'Missing id???');
       return [{
         fullName: valueTokens[0],
@@ -207,7 +219,7 @@ export class DescriptionFormatter {
         properties: handleNames.splice(1),
         extra,
         _handleConn: handleConn,
-        value: particleDescription._connections[handleConn.name].value
+        value: handleDesc.value //particleDescription._connections[handleConn.name].value
       }];
         
     }
@@ -222,7 +234,9 @@ export class DescriptionFormatter {
       return [];
     }
 
-    const providedSlotConn = particle.consumedSlotConnections[handleNames[0]].providedSlots[handleNames[1]];
+    const providedSlotConn = //particle.
+                particleDescription._particle.  // THIS WILL FAIL!!!
+                consumedSlotConnections[handleNames[0]].providedSlots[handleNames[1]];
     assert(providedSlotConn, `Could not find handle ${handleNames.join('.')}`);
     return [{
       fullName: valueTokens[0],
@@ -318,8 +332,8 @@ export class DescriptionFormatter {
 
     const results = token._providedSlotConn.consumeConnections.map(consumeConn => {
       const particle = consumeConn.particle;
-      const particleDescription = this.particleDescriptions.find(desc => desc._particle === particle);
-      this.seenParticles.add(particle);
+      const particleDescription = this.particleDescriptions.find(desc => desc.particleId === particle.id);
+      this.seenParticleIds.add(particle.id);
       return this.patternToSuggestion(particle.spec.pattern, particleDescription);
     });
 
@@ -414,7 +428,7 @@ export class DescriptionFormatter {
       }
     }
 
-    const chosenParticleDescription = this.particleDescriptions.find(desc => desc._particle === chosenConnection.particle);
+    const chosenParticleDescription = this.particleDescriptions.find(desc => desc.particleId === chosenConnection.particle.id);
     const handleDescription = chosenParticleDescription ? chosenParticleDescription._connections[chosenConnection.name] : null;
     // Add description to result array.
     if (handleDescription && handleDescription.pattern) {
@@ -445,7 +459,7 @@ export class DescriptionFormatter {
     const possibleConnections = recipeHandle.connections.filter(connection => {
       // Choose connections with patterns (manifest-based or dynamic).
       const connectionSpec = connection.spec;
-      const particleDescription = this.particleDescriptions.find(desc => desc._particle === connection.particle);
+      const particleDescription = this.particleDescriptions.find(desc => desc.particleId === connection.particle.id);
       return !!connectionSpec.pattern || !!particleDescription._connections[connection.name].pattern;
     });
 
@@ -457,8 +471,8 @@ export class DescriptionFormatter {
         return isOutput1 ? -1 : 1;
       }
 
-      const d1 = this.particleDescriptions.find(desc => desc._particle === c1.particle);
-      const d2 = this.particleDescriptions.find(desc => desc._particle === c2.particle);
+      const d1 = this.particleDescriptions.find(desc => desc.particleId === c1.particle.id);
+      const d2 = this.particleDescriptions.find(desc => desc.particleId === c2.particle.id);
       // Sort by particle's rank in descending order.
       return d2._rank - d1._rank;
     });
@@ -471,8 +485,8 @@ export class DescriptionFormatter {
   static sort(p1, p2) {
     const isRoot = (slotSpec) => slotSpec.name === 'root' || slotSpec.tags.includes('root');
     // Root slot comes first.
-    const hasRoot1 = Boolean([...p1._particle.spec.slots.values()].find(slotSpec => isRoot(slotSpec)));
-    const hasRoot2 = Boolean([...p2._particle.spec.slots.values()].find(slotSpec => isRoot(slotSpec)));
+    const hasRoot1 = Boolean([...p1.particleSpec.slots.values()].find(slotSpec => isRoot(slotSpec)));
+    const hasRoot2 = Boolean([...p2.particleSpec.slots.values()].find(slotSpec => isRoot(slotSpec)));
     if (hasRoot1 !== hasRoot2) {
       return hasRoot1 ? -1 : 1;
     }
@@ -485,8 +499,8 @@ export class DescriptionFormatter {
     // Sort by number of singleton slots.
     let p1Slots = 0;
     let p2Slots = 0;
-    p1._particle.spec.slots.forEach((slotSpec) => { if (!slotSpec.isSet) ++p1Slots; });
-    p2._particle.spec.slots.forEach((slotSpec) => { if (!slotSpec.isSet) ++p2Slots; });
+    p1.particleSpec.slots.forEach((slotSpec) => { if (!slotSpec.isSet) ++p1Slots; });
+    p2.particleSpec.slots.forEach((slotSpec) => { if (!slotSpec.isSet) ++p2Slots; });
     return p2Slots - p1Slots;
   }
 }
