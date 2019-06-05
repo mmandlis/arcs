@@ -290,4 +290,81 @@ describe('interface', () => {
     assert.isFalse(check('GibsonCandidate'));
     assert.isFalse(check('LesPaulCandidate'));
   });
+
+  it.only('allows type checking with no names', async () => {
+    const manifest = await Manifest.parse(`
+      interface MyInterface
+        in ~oneVar *
+        in [~twoVar] *
+        in [~threeVar] * // threes
+      schema One
+      schema Two
+      schema Three
+      particle HostedParticle in 'a.js'
+        in One one
+        in [Two] twos
+        in [Three] threes
+    `);
+    const myInterface = manifest.interfaces.find(i => i.name === 'MyInterface');
+    const myParticle = manifest.particles.find(p => p.name === 'HostedParticle');
+    assert.isTrue(myInterface.restrictType(myParticle));
+
+    console.log(myInterface.handles.map(h => `${h.type.toString()} => ${h.type.toPrettyString()}`));
+    // This outputs:
+    // '~oneVar => One',
+    // '[~twoVar] => Three List',
+    // '[~threeVar] => Two List'
+    const twoVarHandle = myInterface.handles.find(h => h.type.toString() === '[~twoVar]');
+    assert.equal(twoVarHandle.type.resolvedType().toString(), '[Two {}]');
+  });
+
+  it.only('allows type checking with no names', async () => {
+    const manifest = await Manifest.parse(`
+      interface MyInterface
+        in ~oneVar *
+        in [~twoVar] *
+        in [~threeVar] * // threes
+      schema One
+      schema Two
+      schema Three
+      particle HostedParticle in 'a.js'
+        in One one
+        in [Two] twos
+        in [Three] threes
+      particle MultiplexerParticle in 'a.js'
+        in [~oneVar] ones
+        in [~twoVar] twos
+        in [~threeVar] threes
+        host MyInterface hostedParticle
+
+      recipe
+        map 'ones' as ones
+        create as twos
+        map 'threes' as threes
+        MultiplexerParticle
+          ones = ones
+          twos = twos
+          threes = threes
+          hostedParticle = HostedParticle
+
+      resource OnesList
+        start
+        [
+        ]
+      store Store0 of [One] 'ones' in OnesList
+      resource ThreeList
+        start
+        [
+        ]
+      store Store1 of [Three] 'threes' in ThreeList
+    `);
+    const recipe = manifest.recipes[0];
+    const options = {errors: new Map()};
+    const normalized = recipe.normalize(options);
+    if (!normalized) {
+      console.log(`Cannot normalize recipe: ${[...options.errors.values()].join('\n')}`);
+    }
+    assert.isTrue(normalized);
+    // assert.isTrue(recipe.isResolved());
+  });
 });
