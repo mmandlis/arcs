@@ -31,7 +31,7 @@ extern void singletonClear(Particle* p, Handle* h);
 extern const char* collectionStore(Particle* p, Handle* h, const char* encoded);
 extern void collectionRemove(Particle* p, Handle* h, const char* encoded);
 extern void collectionClear(Particle* p, Handle* h);
-extern void dereference(Particle* p, const char* id, const char* key, const char* schema_hash, int continuation_id);
+extern void dereference(Particle* p, const char* id, const char* create, const char* key, const char* schema_hash, int continuation_id);
 extern void onRenderOutput(Particle* p, const char* template_str, const char* model);
 extern void serviceRequest(Particle* p, const char* call, const char* args, const char* tag);
 
@@ -189,6 +189,17 @@ public:
   static void set_id(T* entity, const std::string& id) {
     entity->_internal_id_ = id;
   }
+
+  // template<typename T>
+  // static const std::string& get_creation_timestamp(const T& entity) {
+  //   return entity._creation_timestamp_;
+  // }
+
+
+  // template<typename T>
+  // static void set_creation_timestamp(T* entity, const std::string& creation_timestamp) {
+  //   entity->_creation_timestamp_ = creation_timestamp;
+  // }
 
   template<typename T>
   static const char* get_schema_hash() {
@@ -407,6 +418,7 @@ public:
       entity._internal_id_ = id;
       free((void*)id);
     }
+    // entity._creation_timestamp_ = 222;
     // Write-only handles do not keep entity data locally.
     if (dir_ == InOut) {
       entities_.emplace(entity._internal_id_, new T(entity));
@@ -455,6 +467,7 @@ protected:
   std::string _internal_id_;
   std::string storage_key_;
   const char* schema_hash_;
+  std::string _creation_timestamp_;
 
   friend class Particle;
   friend class internal::Accessor;
@@ -546,12 +559,17 @@ template<typename T>
 void StringDecoder::decode(Ref<T>& ref) {
   decode(ref._internal_id_);
   validate("|");
+  decode(ref._creation_timestamp_);
+  validate("|");
   decode(ref.storage_key_);
   validate("|");
   std::string hash = upTo(':');
   if (hash != ref.schema_hash_) {
     std::string msg = "reference received with schema hash '" + hash +
-                      "', but the generated entity code has '" + ref.schema_hash_ + "'\n";
+                      "', but the generated entity code has '" + ref.schema_hash_ + "'\n" +
+                      "', (id= '" + ref._internal_id_ + 
+                      "', creation= '" + ref._creation_timestamp_ + 
+                      "', storage= '" + ref.storage_key_ + ")\n";
     systemError(msg.c_str());
   }
 }
@@ -559,6 +577,7 @@ void StringDecoder::decode(Ref<T>& ref) {
 template<typename T>
 void StringEncoder::encode(const char* prefix, const Ref<T>& ref) {
   str_ += prefix + encodeStr(ref._internal_id_) + "|"
+                 + encodeStr(ref._creation_timestamp_) + "|"
                  + encodeStr(ref.storage_key_) + "|"
                  + ref.schema_hash_ + ":|";
 }
@@ -572,6 +591,7 @@ template<typename T>
 inline size_t Accessor::hash_entity(const Ref<T>& ref) {
   size_t h = 0;
   hash_combine(h, ref._internal_id_);
+  hash_combine(h, ref._creation_timestamp_);
   hash_combine(h, ref.storage_key_);
   return h;
 }
@@ -581,6 +601,9 @@ inline std::string Accessor::entity_to_str(const Ref<T>& ref, const char* unused
   StringPrinter printer;
   printer.add("REF<");
   printer.add("", ref._internal_id_);
+  if (ref._creation_timestamp_ != "") {
+    printer.add("|", ref._creation_timestamp_);
+  }
   if (ref.storage_key_ != "") {
     printer.add("|", ref.storage_key_);
   }
@@ -696,7 +719,7 @@ public:
     internal::DerefContinuation wrapped = ref.wrap(continuation);
     if (wrapped) {
       continuations_.emplace(++continuation_id_, std::move(wrapped));
-      internal::dereference(this, ref._internal_id_.c_str(), ref.storage_key_.c_str(),
+      internal::dereference(this, ref._internal_id_.c_str(), ref._creation_timestamp_.c_str(), ref.storage_key_.c_str(),
                             ref.schema_hash_, continuation_id_);
     }
   }

@@ -95,13 +95,14 @@ public:
     // ref field itself, and an id on the entity being bound.
     arcs::EntityClassApiTest_Data d2;
     std::string schema_hash = Accessor::get_schema_hash<arcs::EntityClassApiTest_Data_Ref>();
-    Accessor::decode_entity(&d2, ("7:data-id|ref:R6:foo-id|3:key|" + schema_hash + ":|").c_str());
+    Accessor::decode_entity(&d2, ("7:data-id|1:1|ref:R6:foo-id|1:2|3:key|" + schema_hash + ":|").c_str());
 
     arcs::EntityClassApiTest_Data_Ref foo;
     Accessor::set_id(&foo, "foo-id");
     foo.set_val("bar");
     d2.set_ref(foo);
-    EQUAL(arcs::entity_to_str(d2), "{data-id}, ref: REF<foo-id|key|[{foo-id}, val: bar]>");
+    console("HELLO-MY-FRIEND %s \n", arcs::entity_to_str(d2).c_str());
+    EQUAL(arcs::entity_to_str(d2), "{data-id}, ref: REF<foo-id|2|key|[{foo-id}, val: bar]>");
   }
 
   void test_id_equality() {
@@ -294,13 +295,13 @@ public:
     std::string schema_hash = Accessor::get_schema_hash<arcs::EntityClassApiTest_Data_Ref>();
 
     // empty vs populated
-    Accessor::decode_entity(&d2, ("0:|ref:R3:id1|4:key1|" + schema_hash + ":|").c_str());
+    Accessor::decode_entity(&d2, ("0:|0:|ref:R3:id1|0:|4:key1|" + schema_hash + ":|").c_str());
     NOT_EQUAL(d1, d2);
     LESS(d1, d2);
     NOT_LESS(d2, d1);
 
     // populated vs populated
-    std::string encoded = "0:|ref:R3:id9|4:key9|" + schema_hash + ":|";
+    std::string encoded = "0:|0:|ref:R3:id9|0:|4:key9|" + schema_hash + ":|";
     Accessor::decode_entity(&d1, encoded.c_str());
     NOT_EQUAL(d1, d2);
     NOT_LESS(d1, d2);

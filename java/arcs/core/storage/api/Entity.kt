@@ -19,6 +19,7 @@ import kotlin.reflect.KClass
 
 interface Entity {
     var internalId: String
+    var creationTimestamp: String
     fun schemaHash(): String
     fun serialize(): RawEntity
 }

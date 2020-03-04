@@ -24,7 +24,7 @@ const keywords = [
   'init', 'param', 'property', 'receiver', 'set', 'setparam', 'where', 'actual', 'abstract', 'annotation', 'companion',
   'const', 'crossinline', 'data', 'enum', 'expect', 'external', 'final', 'infix', 'inline', 'inner', 'internal',
   'lateinit', 'noinline', 'open', 'operator', 'out', 'override', 'private', 'protected', 'public', 'reified', 'sealed',
-  'suspend', 'tailrec', 'vararg', 'it', 'internalId'
+  'suspend', 'tailrec', 'vararg', 'it', 'internalId', 'creationTimestamp'
 ];
 
 const typeMap = {
@@ -199,6 +199,7 @@ class KotlinGenerator implements ClassGenerator {
 class ${name}() : ${this.getType('Entity')} {
 
     override var internalId = ""
+    override var creationTimestamp = ""
 
     ${withFields(`${this.fieldVals.join('\n    ')}`)}
 
@@ -240,6 +241,7 @@ ${this.opts.wasm ? `
     override fun encodeEntity(): NullTermByteArray {
         val encoder = StringEncoder()
         encoder.encode("", internalId)
+        encoder.encode("|", creationTimestamp)
         ${this.encode.join('\n        ')}
         return encoder.toNullTermByteArray()
     }` : `
@@ -247,7 +249,9 @@ ${this.opts.wasm ? `
         internalId,
         mapOf(
             ${this.fieldSerializes.join(',\n            ')}
-        )
+        ),
+        mapOf(),
+        creationTimestamp
     )`}
 
     override fun toString() = "${name}(${this.fieldsForToString.join(', ')})"
@@ -263,6 +267,7 @@ class ${name}_Spec() : ${this.getType('EntitySpec')}<${name}> {
         ${withFields(`${this.fieldDeserializes.join(', \n        ')}`)}
       )
       rtn.internalId = data.id
+      rtn.creationTimestamp = data.creationTimestamp
       return rtn
     }` : ''}
 ${this.opts.wasm ? `
@@ -271,6 +276,8 @@ ${this.opts.wasm ? `
 
         val decoder = StringDecoder(encoded)
         val internalId = decoder.decodeText()
+        decoder.validate("|")
+        val creationTimestamp = decoder.decodeText()
         decoder.validate("|")
         ${withFields(`
         ${this.setFieldsToDefaults.join('\n        ')}
@@ -296,6 +303,7 @@ ${this.opts.wasm ? `
             ${this.fieldsForCopy.join(', \n            ')}
         )
         _rtn.internalId = internalId
+        _rtn.creationTimestamp = creationTimestamp
         return _rtn
     }` : ''}
 }

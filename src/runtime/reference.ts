@@ -81,7 +81,7 @@ export class Reference implements Storable {
   }
 
   // Called by WasmParticle to retrieve the entity for a reference held in a wasm module.
-  static async retrieve(pec: ChannelConstructor, id: string, storageKey: string, entityType: EntityType, particleId: string) {
+  static async retrieve(pec: ChannelConstructor, id: string, /*creationTimestamp: string,*/ storageKey: string, entityType: EntityType, particleId: string) {
     const proxy = await pec.getStorageProxy(storageKey, entityType);
     const handle = handleNGFor(particleId, proxy, pec.idGenerator, null, true, true) as CollectionHandle<Entity>;
     return await handle.fetch(id);

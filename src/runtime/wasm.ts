@@ -137,7 +137,7 @@ export abstract class StringEncoder {
 
   async encodeCollection(entities: Storable[]): Promise<DynamicBuffer> {
     const bufs: DynamicBuffer[] = [];
-    let len = 11;  // for 'num-entities:' prefix
+    let len = 10;  // for 'num-entities:' prefix
     for (const entity of entities) {
       const buf = await this.encodeSingleton(entity);
       bufs.push(buf);
@@ -410,6 +410,11 @@ export abstract class StringDecoder {
 class EntityDecoder extends StringDecoder {
   decodeSingleton(bytes: Uint8Array): Storable {
     this.init(bytes);
+    console.log(`>>>>>> decodeSingleton ${bytes.join()}`);
+    const ch = [];
+    bytes.forEach(b => ch.push(String.fromCharCode(b)));
+    console.log('<<<<<', ch.join(''));
+    console.log('<<<<< end.'); 
 
     const len = Number(this.upTo(':'));
     const id = this.chomp(len);
@@ -682,7 +687,7 @@ export class WasmContainer {
       _collectionRemove: (p, h, entity) => this.getParticle(p).collectionRemove(h, entity),
       _collectionClear: (p, h) => this.getParticle(p).collectionClear(h),
       _onRenderOutput: (p, template, model) => this.getParticle(p).onRenderOutput(template, model),
-      _dereference: (p, id, key, hash, cid) => this.getParticle(p).dereference(id, key, hash, cid),
+      _dereference: (p, id, create, key, hash, cid) => this.getParticle(p).dereference(id, create, key, hash, cid),
       _serviceRequest: (p, call, args, tag) => this.getParticle(p).serviceRequest(call, args, tag),
       _resolveUrl: (url) => this.resolve(url),
     };
@@ -940,8 +945,9 @@ export class WasmParticle extends Particle {
   }
 
   // Retrieves the entity held by a reference.
-  async dereference(idPtr: WasmAddress, keyPtr: WasmAddress, hashPtr: WasmAddress, continuationId: number) {
+  async dereference(idPtr: WasmAddress, createPtr: WasmAddress, keyPtr: WasmAddress, hashPtr: WasmAddress, continuationId: number) {
     const id = this.container.readStr(idPtr);
+    const creationTimestamp = this.container.readStr(createPtr);
     const storageKey = this.container.readStr(keyPtr);
     const hash = this.container.readStr(hashPtr);
     const entityType = this.typeMap.getL(hash);
@@ -950,7 +956,7 @@ export class WasmParticle extends Particle {
     }
 
     const encoder = this.getEncoder(entityType);
-    const entity = await Reference.retrieve(this.container.pec, id, storageKey, entityType, this.id);
+    const entity = await Reference.retrieve(this.container.pec, id, /*creationTimestamp,*/ storageKey, entityType, this.id);
 
     const p = this.container.storeBytes(await encoder.encodeSingleton(entity));
     this.exports._dereferenceResponse(this.innerParticle, continuationId, p);

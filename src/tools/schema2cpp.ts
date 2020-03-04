@@ -242,6 +242,7 @@ protected:
 
   ${this.fields.join('\n  ')}
   std::string _internal_id_;
+  std::string _creation_timestamp_;
 
   friend class Singleton<${name}>;
   friend class Collection<${name}>;
@@ -278,6 +279,7 @@ inline std::string internal::Accessor::entity_to_str(const ${name}& entity, cons
   internal::StringPrinter printer;
   if (with_id) {
     printer.addId(entity._internal_id_);
+    //printer.add("|", entity._creation_timestamp_);
   }
   ${this.stringify.join('\n  ')}
   return printer.result(join);
@@ -288,6 +290,8 @@ inline void internal::Accessor::decode_entity(${name}* entity, const char* str) 
   if (str == nullptr) return;
   internal::StringDecoder decoder(str);
   decoder.decode(entity->_internal_id_);
+  decoder.validate("|");
+  decoder.decode(entity->_creation_timestamp_);
   decoder.validate("|");
   for (int i = 0; !decoder.done() && i < ${name}::_field_count; i++) {
     std::string name = decoder.upTo(':');
@@ -316,6 +320,7 @@ template<>
 inline std::string internal::Accessor::encode_entity(const ${name}& entity) {
   internal::StringEncoder encoder;
   encoder.encode("", entity._internal_id_);
+  encoder.encode("|", entity._creation_timestamp_);
   ${this.encode.join('\n  ')}
   return encoder.result();
 }

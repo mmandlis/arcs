@@ -205,7 +205,7 @@ schema FooHandle
 
 particle OnCreateTest in '$module.wasm'
   root: consumes Slot
-  fooHandle: reads writes FooHandle
+  fooHandle: reads writes FooHandle {txt}
 
 recipe OnCreateTest
   s1: slot 'rootslotid-root'
