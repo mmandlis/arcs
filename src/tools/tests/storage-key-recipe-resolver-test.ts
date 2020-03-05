@@ -15,7 +15,7 @@ import {assertThrowsAsync} from '../../testing/test-util.js';
 
 describe('recipe2plan', () => {
   describe('storage-key-recipe-resolver', () => {
-    it('resolves mapping a handle from a long running arc into another long running arc', async () => {
+    it.only('resolves mapping a handle from a long running arc into another long running arc', async () => {
       const manifest = await Manifest.parse(`\
     particle Reader
       data: reads Thing {name: Text}

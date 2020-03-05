@@ -7,6 +7,8 @@
  * subject to an additional IP rights grant found at
  * http://polymer.github.io/PATENTS.txt
  */
+import {assert} from '../platform/assert-web.js';
+
 import {Runtime} from '../runtime/runtime.js';
 import {Manifest} from '../runtime/manifest.js';
 import {Loader} from '../platform/loader-web.js';
@@ -45,6 +47,11 @@ export class StorageKeyRecipeResolver {
       const resolved = await this.tryResolve(recipe, arc, opts);
       if (!resolved) {
         throw Error(`Recipe ${recipe.name} failed to resolve:\n${[...opts.errors.values()].join('\n')}`);
+      }
+      debugger;
+      if (resolved.name === 'WritingRecipe') {
+        assert(!resolved.handles[0].type.isResolved());
+        assert(resolved.isResolved());
       }
       this.createStoresForCreateHandles(resolved, arc);
       if (!resolved.isResolved()) {
