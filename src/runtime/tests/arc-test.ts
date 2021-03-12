@@ -50,7 +50,7 @@ async function setup(storageKeyPrefix:  (arcId: ArcId) => StorageKey) {
         bar: writes handle1
   `, {loader, memoryProvider, fileName: process.cwd() + '/input.manifest'});
   const runtime = new Runtime({loader, context: manifest, memoryProvider});
-  const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test', storageKeyPrefix}));
+  const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test', storageKeyPrefix}));
 
   return {
     runtime,
@@ -97,7 +97,7 @@ describe('Arc new storage', () => {
     runtime.context = await runtime.parseFile('./manifest');
 
     const opts = runtime.host.buildArcParams({arcName: 'test'});
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcId: opts.id}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcId: opts.id}));
 
     const dataClass = Entity.createEntityClass(runtime.context.findSchemaByName('Data'), null);
     const varStore = await arc.createStore(new SingletonType(dataClass.type), undefined, 'test:0');
@@ -164,7 +164,7 @@ describe('Arc new storage', () => {
       schema Thing
       particle MyParticle in 'MyParticle.js'
         thing: writes Thing
-      recipe
+      recipe TestPlan
         handle0: create @tiedToArc
         MyParticle
           thing: handle0
@@ -172,7 +172,9 @@ describe('Arc new storage', () => {
     const manifest = await runtime.parse(manifestText, {fileName: process.cwd() + '/input.manifest'});
     runtime.context = manifest;
     const arc = runtime.getArcById(await runtime.allocator.startArc({
-      arcName: 'test', storageKeyPrefix: ramDiskStorageKeyPrefixForTest()
+      arcName: 'test',
+      storageKeyPrefix: ramDiskStorageKeyPrefixForTest(),
+      planName: 'TestPlan'
     }));
     await arc.idle;
 
@@ -192,7 +194,7 @@ const doSetup = async () => setup(arcId => new VolatileStorageKey(arcId, ''));
 describe('Arc', () => {
   it('idle can safely be called multiple times ', async () => {
     const runtime = new Runtime();
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
     const f = async () => { await arc.idle; };
     await Promise.all([f(), f()]);
   });
@@ -251,7 +253,7 @@ describe('Arc', () => {
           b: writes thingB
     `, {fileName: process.cwd() + '/input.manifest'});
 
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -325,7 +327,7 @@ describe('Arc', () => {
       assert.isTrue(e.toString().includes('store \'storeInContext\'')); // with "use" fate was not found'));
     }
 
-    const arc = await runtime.getArcById(runtime.allocator.newArc({arcName: 'test2'}));
+    const arc = await runtime.getArcById(await runtime.allocator.startArc({arcName: 'test2'}));
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     await arc.createStore(new SingletonType(thingClass.type), 'name', 'storeInArc');
     const resolver = new RecipeResolver(arc);
@@ -360,7 +362,7 @@ describe('Arc', () => {
           b: writes thingB
     `, {fileName: process.cwd() + '/input.manifest'});
 
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -410,7 +412,7 @@ describe('Arc', () => {
             b: writes thingB
             d: writes maybeThingD
       `, {fileName: process.cwd() + '/input.manifest'});
-      const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+      const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
       const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
       const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -453,7 +455,7 @@ describe('Arc', () => {
             d: writes maybeThingD
       `, {fileName: process.cwd() + '/input.manifest'});
 
-      const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+      const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
       const thingClass = Entity.createEntityClass(context.findSchemaByName('Thing'), null);
       const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -494,7 +496,7 @@ describe('Arc', () => {
           b: writes thingB
           c: reads maybeThingC
     `, {fileName: process.cwd() + '/input.manifest'});
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -546,7 +548,7 @@ describe('Arc', () => {
             b: writes thingB
             c: reads maybeThingC
       `, {fileName: process.cwd() + '/input.manifest'});
-      const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+      const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
       const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
       const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -588,7 +590,7 @@ describe('Arc', () => {
           c: reads maybeThingC
           d: writes maybeThingD
     `, {fileName: process.cwd() + '/input.manifest'});
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -638,7 +640,7 @@ describe('Arc', () => {
           c: reads maybeThingC
           d: writes maybeThingD
     `, {fileName: process.cwd() + '/input.manifest'});
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
 
     const thingClass = Entity.createEntityClass(manifest.findSchemaByName('Thing'), null);
     const aStore = await arc.createStore(new SingletonType(thingClass.type), 'aStore', 'test:1');
@@ -667,7 +669,7 @@ describe('Arc', () => {
   it('deserializing a serialized empty arc produces an empty arc', async () => {
     const runtime = new Runtime();
     const opts = runtime.host.buildArcParams({arcName: 'test'});
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcId: opts.id}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcId: opts.id}));
     await arc.idle;
 
     const serialization = await arc.serialize();
@@ -735,7 +737,7 @@ describe('Arc', () => {
 
     const runtime = new Runtime({loader});
     const manifest = await runtime.parseFile('./manifest');
-    const arc = runtime.getArcById(runtime.allocator.newArc({arcName: 'test'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test'}));
     const recipe = manifest.recipes[0];
 
     await runtime.allocator.runPlanInArc(arc.id, recipe);
@@ -762,10 +764,10 @@ describe('Arc', () => {
     const runtime = new Runtime();
     assert.equal(runtime.driverFactory.providers.size, 1);
 
-    const arc1 = runtime.getArcById(runtime.allocator.newArc({arcName: 'test1'}));
+    const arc1 = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test1'}));
     assert.strictEqual(runtime.driverFactory.providers.size, 2);
 
-    const arc2 = runtime.getArcById(runtime.allocator.newArc({arcName: 'test2'}));
+    const arc2 = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test2'}));
     assert.strictEqual(runtime.driverFactory.providers.size, 3);
 
     arc1.dispose();
@@ -787,14 +789,14 @@ describe('Arc', () => {
         schema Thing
         particle MyParticle in 'a.js'
           thing: writes Thing
-        recipe
+        recipe TestPlan
           h0: create 'mything'
           MyParticle
             thing: writes h0
         `, {memoryProvider});
 
     const runtime = new Runtime({loader, context: manifest, memoryProvider});
-    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test0'}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test0', planName: 'TestPlan'}));
     assert.lengthOf(arc.activeRecipe.handles, 3);
     const myThingHandle = arc.activeRecipe.handles.find(h => h.id === 'mything');
     assert.isNotNull(myThingHandle);
@@ -855,7 +857,7 @@ describe('Arc storage migration', () => {
           things0: reads writes [Thing]
           things1: reads writes [Thing]
           things2: reads writes Thing
-        recipe
+        recipe TestPlan
           h0: create @ttl('3m')
           h1: create @ttl('23h')
           h2: create @ttl('2d')
@@ -870,7 +872,11 @@ describe('Arc storage migration', () => {
       }
     }();
     const runtime = new Runtime({loader, context: manifest, storageKeyFactories: [volatileFactory]});
-    const arc = runtime.getArcById(await runtime.allocator.startArc({arcName: 'test', storageKeyPrefix: volatileStorageKeyPrefixForTest()}));
+    const arc = runtime.getArcById(await runtime.allocator.startArc({
+      arcName: 'test',
+      storageKeyPrefix: volatileStorageKeyPrefixForTest(),
+      planName: 'TestPlan'
+    }));
     await arc.idle;
 
     const getStoreByConnectionName = async (connectionName) => {

@@ -29,20 +29,20 @@ export const runArc = async (msg, bus, runtime, defaultStorageKeyPrefix) => {
     warn(`found no recipes matching [${recipe}]`);
     return null;
   }
-  const arc = runtime.getArcById(runtime.allocator.newArc({
+  const arc = await runtime.getArcById(runtime.allocator.startArc({
     arcName: arcId,
     storageKeyPrefix: storageKeyPrefix || defaultStorageKeyPrefix,
     fileName: './serialized.manifest',
     pecFactories: [runtime.pecFactory, portIndustry(bus, pecId)],
     loader: runtime.loader,
-    inspectorFactory: devtoolsArcInspectorFactory
+    inspectorFactory: devtoolsArcInspectorFactory,
+    slotObserver: {
+      observe: (content, arc) => {
+        bus.send({message: 'output', data: content});
+      },
+      dispose: () => null
+    }
   }));
-  arc.peh.slotComposer.slotObserver = {
-    observe: (content, arc) => {
-      bus.send({message: 'output', data: content});
-    },
-    dispose: () => null
-  };
   // optionally instantiate recipe
   if (action && await instantiateRecipe(arc, runtime, action, particles || [])) {
     log(`successfully instantiated ${recipe} in ${arc.id}`);
